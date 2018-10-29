@@ -12,6 +12,7 @@ before_install:
 script:
 - go build .
 - golangci-lint run
+- go test -v .
 
 notifications:
   email:
