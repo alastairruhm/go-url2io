@@ -17,14 +17,17 @@ const (
 	articleBasePath = "/article"
 )
 
+// ArticleService ...
 type ArticleService interface {
-	Parse(url string, fields []string) (*http.Response, *ParseResult, *ErrorResponse, error)
+	Parse(url string, fields []string) (*http.Response, *ParseResult, error)
 }
 
+// ArticleServiceOp impl ArticleService
 type ArticleServiceOp struct {
 	client *Client
 }
 
+// ParseResult normal result of api /article returns
 type ParseResult struct {
 	Title   string     `json:"title"`
 	Content string     `json:"content,omitempty"`
@@ -36,13 +39,14 @@ type ParseResult struct {
 
 var _ ArticleService = &ArticleServiceOp{}
 
-func (s *ArticleServiceOp) Parse(url string, fields []string) (*http.Response, *ParseResult, *ErrorResponse, error) {
+// Parse ...
+func (s *ArticleServiceOp) Parse(url string, fields []string) (*http.Response, *ParseResult, error) {
 	if url == "" {
-		return nil, nil, nil, NewArgError("url", "can't be empty")
+		return nil, nil, NewArgError("url", "can't be empty")
 	}
 	for _, f := range fields {
 		if f != "next" && f != "text" {
-			return nil, nil, nil, NewArgError("fields", "now only support next and text options")
+			return nil, nil, NewArgError("fields", "now only support next and text options")
 		}
 	}
 	path := fmt.Sprintf("%s%s", s.client.BaseURL, articleBasePath)
@@ -50,9 +54,10 @@ func (s *ArticleServiceOp) Parse(url string, fields []string) (*http.Response, *
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
+	// construct query string
 	q := req.URL.Query()
 	q.Add("token", s.client.Token)
 	q.Add("url", url)
@@ -61,20 +66,21 @@ func (s *ArticleServiceOp) Parse(url string, fields []string) (*http.Response, *
 		q.Add("fields", strings.Join(fields, ","))
 	}
 	req.URL.RawQuery = q.Encode()
+
 	result := new(ParseResult)
-	resp, errorResponse, err := s.Do(req, result)
+	resp, err := s.Do(req, result)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	return resp, result, errorResponse, nil
+	return resp, result, nil
 }
 
-func (s *ArticleServiceOp) Do(req *http.Request, v interface{}) (*http.Response, *ErrorResponse, error) {
+func (s *ArticleServiceOp) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	resp, err := s.client.Do(req)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	defer func() {
@@ -83,55 +89,48 @@ func (s *ArticleServiceOp) Do(req *http.Request, v interface{}) (*http.Response,
 		}
 	}()
 
-	errorResponse, err := CheckResponse(resp)
+	err = CheckResponse(resp)
 
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if errorResponse != nil {
-		return resp, errorResponse, nil
+		return nil, err
 	}
 
 	if v != nil {
 		if w, ok := v.(io.Writer); ok {
 			_, err = io.Copy(w, resp.Body)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(v)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 	}
 
-	return resp, nil, nil
+	return resp, nil
 }
 
-func CheckResponse(r *http.Response) (*ErrorResponse, error) {
+func CheckResponse(r *http.Response) error {
 	if c := r.StatusCode; c >= 200 && c <= 299 {
-		return nil, nil
+		return nil
 	}
 
-	errorResponse := &ErrorResponse{}
+	responseError := &ResponseError{}
 	data, err := ioutil.ReadAll(r.Body)
 	if err == nil && len(data) > 0 {
-		err := json.Unmarshal(data, errorResponse)
+		err := json.Unmarshal(data, responseError)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return errorResponse, nil
+	return responseError
 }
 
-// An ErrorResponse reports the error caused by an API request
-type ErrorResponse struct {
-	// HTTP response that caused this error
-	// Response *http.Response
-	// Message error message
+// An ResponseError indicates the response status code isn't 2xx
+type ResponseError struct {
 	Message string `json:"msg,omitempty"`
 	// Error error type
 	ErrorType string `json:"error,omitempty"`
@@ -143,7 +142,11 @@ type ErrorResponse struct {
 	ResourceType string `json:"type,omitempty"`
 }
 
-// func (r *ErrorResponse) Error() string {
-// 	return fmt.Sprintf("%v %v: %d %v",
-// 		r.Response.Request.Method, r.Response.Request.URL, r.Response.StatusCode, r.Message)
-// }
+func (r *ResponseError) Error() string {
+	return fmt.Sprintf("response error code: %d, type: %s, message: %s, url: %s, resource type: %s",
+		r.Code,
+		r.ErrorType,
+		r.Message,
+		r.URL,
+		r.ResourceType)
+}

@@ -37,6 +37,10 @@ func NewClient(token string, httpClient *http.Client) *Client {
 	return c
 }
 
+// Do make some decorations wrapper with http client if needed
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Add("Content-Type", mediaType)
+	req.Header.Add("Accept", mediaType)
+	req.Header.Add("User-Agent", c.UserAgent)
 	return c.client.Do(req)
 }
