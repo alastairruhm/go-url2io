@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	client := url2io.NewClient("zF1lMUyCRVuuPaNSqb68yQ", nil)
+	client := url2io.NewClient("token-of-url2io", nil)
 
 	// article api
 
