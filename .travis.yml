@@ -1,16 +1,19 @@
 language: go
 
 go:
-  - "1.11"
+  - 1.11.x
 
 env:
   - GO111MODULE=on  
 
+before_script:
+  - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
+
 os:
 - linux  
 
-before_install:
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $GOPATH/bin v1.10.2
+# Skip the install step. Don't `go get` dependencies. Only build with the code in vendor/
+install: true
 
 script:
   - golangci-lint run
