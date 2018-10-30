@@ -6,8 +6,8 @@ go:
 env:
   - GO111MODULE=on  
 
-before_script:
-  - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
+# before_script:
+#   - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
 
 os:
 - linux  
@@ -16,7 +16,7 @@ os:
 install: true
 
 script:
-  - golangci-lint run
+  # - golangci-lint run
   - ./go.test.sh
 
 after_success:
